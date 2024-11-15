@@ -4,9 +4,9 @@ from typing import Any, ClassVar
 import msgspec
 from aiohttp import ClientResponse
 
-from app.core.enums import ExchangeEnum
-from app.core.types import DictStrAny
-from app.services.lifespan import LifeSpanContext
+from src.core.enums import ExchangeEnum
+from src.core.lifespan import LifeSpanContext
+from src.core.types import DictStrAny
 
 
 class ExchangeError(Exception):

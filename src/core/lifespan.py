@@ -3,11 +3,10 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
-from app.core.settings import Settings, get_settings
-from app.services.connection.database import DatabaseConnector
-from app.services.database.models import BaseTable
-
 from .connection import HttpConnector
+from .connection.database import DatabaseConnector
+from .database.models import BaseTable
+from .settings import Settings, get_settings
 
 
 @dataclass

@@ -3,7 +3,7 @@ from typing import Any
 
 from sqlalchemy import Executable, Row
 
-from app.services.connection.database import DatabaseConnector
+from src.core.connection.database import DatabaseConnector
 
 
 class BaseRepository:

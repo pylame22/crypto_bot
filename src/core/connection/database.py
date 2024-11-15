@@ -5,7 +5,7 @@ from typing import Any
 from sqlalchemy import MetaData
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.core.settings import Settings
+from src.core.settings import Settings
 
 from .base import BaseConnector
 

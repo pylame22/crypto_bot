@@ -1,6 +1,9 @@
 run:
-	.venv/bin/python -m app
+	uv run python -m app
+
+format:
+	uv run ruff format . 
 
 lint:
-	.venv/bin/ruff check . --fix
-	.venv/bin/mypy .
+	uv run ruff check . --fix
+	uv run mypy .

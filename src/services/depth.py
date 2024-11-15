@@ -5,12 +5,12 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from app.services.exchange.binance import BinanceAPI
-from app.services.lifespan import LifeSpanContext
-from app.services.repository.depth import DepthRepository
+from src.core.lifespan import LifeSpanContext
+from src.services.exchange.binance import BinanceAPI
+from src.services.repository.depth import DepthRepository
 
 if TYPE_CHECKING:
-    from app.core.schemas import DepthChangeSchema, DepthSchema
+    from src.core.schemas import DepthChangeSchema, DepthSchema
 
 
 @dataclass

@@ -2,9 +2,9 @@ import datetime
 
 from sqlalchemy import insert
 
-from app.core.enums import DepthTypeEnum
-from app.core.schemas import DepthSchema
-from app.services.database.models import DepthTable
+from src.core.database.models import DepthTable
+from src.core.enums import DepthTypeEnum
+from src.core.schemas import DepthSchema
 
 from .base import BaseRepository
 
@@ -21,7 +21,7 @@ class DepthRepository(BaseRepository):
                     "price": price,
                     "quantity": quantity,
                     "datetime_at": datetime_at,
-                }
+                },
             )
         for price, quantity in depth_data.asks.items():
             values.append(
@@ -31,7 +31,7 @@ class DepthRepository(BaseRepository):
                     "price": price,
                     "quantity": quantity,
                     "datetime_at": datetime_at,
-                }
+                },
             )
         query = insert(DepthTable)
         await self._execute(query, values)

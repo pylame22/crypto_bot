@@ -2,23 +2,22 @@ FROM python:3.12-alpine AS base
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    POETRY_NO_INTERACTION=1 \
-    POETRY_VIRTUALENVS_IN_PROJECT=1 \
-    POETRY_CACHE_DIR=/tmp/poetry_cache
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
 
-RUN pip install poetry
+RUN pip install uv
 
-WORKDIR /code
-COPY poetry.lock pyproject.toml ./
-RUN poetry install --no-root && rm -rf $POETRY_CACHE_DIR
+WORKDIR /app
+COPY uv.lock pyproject.toml ./
+RUN uv sync --frozen --no-dev
 
 FROM base AS runner
-ENV VIRTUAL_ENV=/code/.venv \
-    PATH="/code/.venv/bin:$PATH"
+ENV VIRTUAL_ENV=/app/.venv \
+    PATH="/app/.venv/bin:$PATH"
 
 COPY --from=base ${VIRTUAL_ENV} ${VIRTUAL_ENV}
-COPY app/ ./app/
+COPY src/ ./src
 COPY .env ./
 COPY config.yml ./
 
-CMD ["python", "-m", "app"]
+CMD ["python", "-m", "src"]

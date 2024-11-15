@@ -3,13 +3,13 @@ from typing import TYPE_CHECKING, Annotated
 
 from aiohttp import WSMsgType
 
-from app.core.enums import ExchangeEnum
-from app.core.schemas import DepthChangeSchema, DepthSchema
+from src.core.enums import ExchangeEnum
+from src.core.schemas import DepthChangeSchema, DepthSchema
 
 from .base import BaseExchangeAPI
 
 if TYPE_CHECKING:
-    from app.core.types import DictStrAny
+    from src.core.types import DictStrAny
 
 
 class BinanceAPI(BaseExchangeAPI):

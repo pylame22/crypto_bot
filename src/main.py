@@ -1,5 +1,5 @@
-from app.services.depth import DepthParams, DepthService
-from app.services.lifespan import lifespan_context
+from src.core.lifespan import lifespan_context
+from src.services.depth import DepthParams, DepthService
 
 
 async def main() -> None:
