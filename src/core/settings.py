@@ -5,6 +5,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 from msgspec import Struct, yaml
 
+from src.core.enums import RunTypeEnum
+
 BASE_DIR = Path(__file__).parents[2]
 
 
@@ -31,6 +33,7 @@ class _Exchanges(Struct):
 
 
 class Settings(Struct):
+    type: RunTypeEnum
     exchanges: _Exchanges
     postgres: _Postgres
     base_dir: Path = BASE_DIR

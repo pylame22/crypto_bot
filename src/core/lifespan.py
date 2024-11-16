@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from .connection import HttpConnector
 from .connection.database import DatabaseConnector
 from .database.models import BaseTable
+from .enums import RunTypeEnum
 from .settings import Settings, get_settings
 
 
@@ -18,11 +19,12 @@ class LifeSpanContext:
 
 @asynccontextmanager
 async def lifespan_context() -> AsyncIterator[LifeSpanContext]:
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-5s %(message)s")
     settings = get_settings()
     http = HttpConnector()
     database = DatabaseConnector(settings)
-    await database.init_tables(BaseTable.metadata)
+    if settings.type == RunTypeEnum.PROD:
+        await database.init_tables(BaseTable.metadata)
 
     yield LifeSpanContext(settings=settings, http=http, database=database)
 

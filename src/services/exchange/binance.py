@@ -32,7 +32,7 @@ class BinanceAPI(BaseExchangeAPI):
         params = [f"{symbol.lower()}@depth@{speed}ms" for symbol in symbols]
         async with self._http.session.ws_connect(self._WS_URL) as ws:
             request_data = self._json_encoder.encode({"method": "SUBSCRIBE", "params": params})
-            await ws._writer.send(request_data)  # noqa: SLF001
+            await ws.send_frame(request_data, WSMsgType.TEXT)
             async for msg in ws:
                 if msg.type == WSMsgType.ERROR:
                     break

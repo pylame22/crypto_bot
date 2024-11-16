@@ -1,21 +1,21 @@
-from collections.abc import Iterable
+from collections.abc import Sequence
 from typing import Any
 
 from sqlalchemy import Executable, Row
 
-from src.core.connection.database import DatabaseConnector
+from src.core.lifespan import LifeSpanContext
 
 
 class BaseRepository:
-    def __init__(self, database: DatabaseConnector) -> None:
-        self._session = database.session
+    def __init__(self, context: LifeSpanContext) -> None:
+        self._session = context.database.session
 
     async def _execute(self, query: Executable, params: Any = None) -> None:
         await self._session.execute(query, params)
 
-    async def _fetch_all(self, query: Executable) -> Iterable[Row]:
+    async def _fetch_all(self, query: Executable) -> Sequence[Row]:
         results = await self._session.execute(query)
-        return results.fetchall()  # type: ignore[return-value]
+        return results.fetchall()
 
     async def _fetch_one(self, query: Executable) -> Row | None:
         results = await self._session.execute(query)

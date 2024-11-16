@@ -23,7 +23,7 @@ dev = [
 target-version = "py312"
 line-length = 120
 lint.select = ["ALL"]
-lint.ignore = ["ANN401", "D"]
+lint.ignore = ["ANN401", "D", "TRY400"]
 extend-exclude = ["local"]
 
 [tool.mypy]

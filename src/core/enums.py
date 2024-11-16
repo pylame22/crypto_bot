@@ -14,6 +14,11 @@ class AutoStrEnum(StrEnum):
         return list_values[next_index]
 
 
+class RunTypeEnum(AutoStrEnum):
+    DEV = auto()
+    PROD = auto()
+
+
 class ExchangeEnum(AutoStrEnum):
     BINANCE = auto()
     OKX = auto()

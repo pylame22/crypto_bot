@@ -1,5 +1,5 @@
 run:
-	uv run python -m app
+	uv run python -m src
 
 format:
 	uv run ruff format . 

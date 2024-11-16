@@ -1,4 +1,5 @@
-from abc import ABC
+from abc import ABC, abstractmethod
+from collections.abc import AsyncGenerator, Iterable
 from typing import Any, ClassVar
 
 import msgspec
@@ -6,6 +7,7 @@ from aiohttp import ClientResponse
 
 from src.core.enums import ExchangeEnum
 from src.core.lifespan import LifeSpanContext
+from src.core.schemas import DepthChangeSchema, DepthSchema
 from src.core.types import DictStrAny
 
 
@@ -69,3 +71,11 @@ class BaseExchangeAPI(ABC):
             request_args["data"] = self._json_encoder.encode(body)
         response: ClientResponse = await getattr(self._http.session, method)(self._API_URL + path, **request_args)
         return await self._parse_response(response)
+
+    @abstractmethod
+    async def get_depth(self, symbol: str, limit: int) -> DepthSchema:
+        pass
+
+    @abstractmethod
+    def listen_depth(self, symbols: Iterable[str], speed: int = 500) -> AsyncGenerator[DepthChangeSchema]:
+        pass
