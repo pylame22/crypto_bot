@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from collections.abc import AsyncGenerator, Iterable
+from collections.abc import AsyncGenerator
 from typing import Any, ClassVar
 
 import msgspec
@@ -8,11 +8,15 @@ from aiohttp import ClientResponse
 
 from src.core.enums import ExchangeEnum
 from src.core.lifespan import LifeSpanContext
-from src.core.schemas import DepthEventSchema, DepthSchema
+from src.core.schemas import DepthEventSchema, DepthSchema, ExchangeInfoSchema
 from src.core.types import DictStrAny
 
 
 class ExchangeError(Exception):
+    pass
+
+
+class ExchangeHTTPError(ExchangeError):
     def __init__(self, status_code: int, *, message: str) -> None:
         self._status_code = status_code
         self._message = message
@@ -55,7 +59,7 @@ class BaseExchangeAPI(ABC):
         except msgspec.DecodeError:
             data = content.decode()
         if response.status not in self._SUCCES_STATUS_CODES:
-            raise ExchangeError(response.status, message=str(data))
+            raise ExchangeHTTPError(response.status, message=str(data))
         return data
 
     async def _request(
@@ -75,9 +79,19 @@ class BaseExchangeAPI(ABC):
         return await self._parse_response(response)
 
     @abstractmethod
-    async def get_depth(self, symbol: str, limit: int) -> DepthSchema:
+    async def get_info(self, symbols: set[str]) -> dict[str, ExchangeInfoSchema]:
         pass
 
     @abstractmethod
-    def listen_depth(self, symbols: Iterable[str], speed: int = 500) -> AsyncGenerator[DepthEventSchema]:
+    async def get_depth(self, symbol: str, limit: int, *, exchange_info: dict[str, ExchangeInfoSchema]) -> DepthSchema:
+        pass
+
+    @abstractmethod
+    def listen_depth(
+        self,
+        symbols: set[str],
+        speed: int,
+        *,
+        exchange_info: dict[str, ExchangeInfoSchema],
+    ) -> AsyncGenerator[DepthEventSchema]:
         pass

@@ -1,30 +1,14 @@
 import asyncio
 import logging
-from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import TypedDict
 
 from src.core.enums import AppEnvEnum
 from src.core.lifespan import LifeSpanContext
-from src.core.schemas import DepthEventSchema
+from src.core.schemas import DepthEventSchema, DepthSchema, ExchangeInfoSchema
 from src.core.utils import check_speed, create_safe_task
 from src.services.exchange.base import BaseExchangeAPI
 from src.services.repository.depth import DepthRepository
-
-
-class _DepthEvent(TypedDict):
-    time: int
-    first_update_id: int
-    final_update_id: int
-    bids: dict[str, str]
-    asks: dict[str, str]
-
-
-class _DepthResult(TypedDict):
-    last_update_id: int
-    bids: dict[str, str]
-    asks: dict[str, str]
 
 
 @dataclass(slots=True)
@@ -37,15 +21,8 @@ class DepthParams:
 class DepthData:
     filtered_symbol_events_map: dict[str, bool] = field(default_factory=dict)
     prev_final_update_ids_map: dict[str, int] = field(default_factory=dict)
-    depth_events: dict[str, dict[int, _DepthEvent]] = field(default_factory=dict)
-    depth_results: dict[str, _DepthResult] = field(default_factory=dict)
-
-    def _update_depth(self, depth: dict[str, str], new_depth: dict[str, str]) -> None:
-        for price, qty in new_depth.items():
-            if qty == "0":
-                depth.pop(price, None)
-            else:
-                depth[price] = qty
+    depth_events: dict[str, dict[int, DepthEventSchema]] = field(default_factory=dict)
+    depth_results: dict[str, DepthSchema] = field(default_factory=dict)
 
     def reset(self) -> None:
         self.filtered_symbol_events_map.clear()
@@ -60,39 +37,48 @@ class DepthData:
 
     def is_valid_first_event(self, symbol: str) -> bool:
         event = next(iter(self.depth_events[symbol].values()))
-        return event["first_update_id"] <= self.depth_results[symbol]["last_update_id"] <= event["final_update_id"]
-
-    def update_depth_events(self, data: DepthEventSchema) -> None:
-        self.depth_events.setdefault(data.symbol, {})[data.final_update_id] = {
-            "time": data.time,
-            "first_update_id": data.first_update_id,
-            "final_update_id": data.final_update_id,
-            "bids": data.bids,
-            "asks": data.asks,
-        }
+        return event.first_update_id <= self.depth_results[symbol].last_update_id <= event.final_update_id
 
     def set_prev_final_update_id(self, symbol: str, final_update_id: int) -> None:
         self.prev_final_update_ids_map[symbol] = final_update_id
 
-    def update_depth_results(self, symbol: str) -> None:
+    def update_depth_results(self, symbol: str, depth_limit: int) -> None:
+        depth_result = self.depth_results[symbol]
         for depth_event in self.depth_events[symbol].values():
-            self._update_depth(self.depth_results[symbol]["bids"], depth_event["bids"])
-            self._update_depth(self.depth_results[symbol]["asks"], depth_event["asks"])
+            if depth_event.first_bid.is_next_ask_for_bid(depth_event.first_ask):
+                depth_result.first_bid = depth_event.first_bid
+                depth_result.first_ask = depth_event.first_ask
+            first_bid = depth_result.first_bid
+            first_ask = depth_result.first_ask
+            new_bids, new_asks = {}, {}
+            for tick_number in range(depth_limit):
+                next_bid = first_bid.get_next(-tick_number)
+                next_ask = first_ask.get_next(tick_number)
+                new_bids[next_bid] = depth_event.bids.get(next_bid, depth_result.bids.get(next_bid, "0"))
+                new_asks[next_ask] = depth_event.asks.get(next_ask, depth_result.asks.get(next_ask, "0"))
+            depth_result.bids = new_bids
+            depth_result.asks = new_asks
         self.depth_events[symbol].clear()
 
     def filter_depth_events(self, symbol: str) -> None:
-        last_update_id = self.depth_results[symbol]["last_update_id"]
+        last_update_id = self.depth_results[symbol].last_update_id
         self.depth_events[symbol] = {
             final_update_id: data
             for final_update_id, data in self.depth_events[symbol].items()
             if final_update_id >= last_update_id
         }
 
+    def update_depth_events(self, data: DepthEventSchema) -> None:
+        self.depth_events.setdefault(data.symbol, {})[data.final_update_id] = data
+
+    def init_depth_results(self, depth_symbols: list[DepthSchema]) -> None:
+        self.depth_results = {depth_symbol.symbol: depth_symbol for depth_symbol in depth_symbols}
+
 
 class DepthService:
     def __init__(
         self,
-        symbols: Iterable[str],
+        symbols: set[str],
         params: DepthParams,
         *,
         api: BaseExchangeAPI,
@@ -113,8 +99,8 @@ class DepthService:
             datetime_at = datetime.fromtimestamp(time / 1000, UTC)
             repo_coro = self._repo.create_depth_snapshot(
                 symbol,
-                bids=self._data.depth_results[symbol]["bids"].copy(),
-                asks=self._data.depth_results[symbol]["asks"].copy(),
+                bids=self._data.depth_results[symbol].bids.copy(),
+                asks=self._data.depth_results[symbol].asks.copy(),
                 datetime_at=datetime_at,
             )
             create_safe_task(repo_coro, logger=self._logger)
@@ -130,14 +116,11 @@ class DepthService:
         if not self._data.is_valid_final_id(data.symbol, data.last_final_update_id):
             raise ValueError
         self._data.set_prev_final_update_id(data.symbol, data.final_update_id)
-        self._data.update_depth_results(data.symbol)
+        self._data.update_depth_results(data.symbol, self._params.depth_limit)
         self._save_to_db(data.symbol, data.time)
 
-        self._logger.debug(len(self._data.depth_results[data.symbol]["asks"]))
-        self._logger.debug(len(self._data.depth_results[data.symbol]["bids"]))
-
-    async def _listen_depth(self, depth_available: asyncio.Event) -> None:
-        async for data in self._api.listen_depth(self._symbols, self._params.ws_speed):
+    async def _listen_depth(self, exchange_info: dict[str, ExchangeInfoSchema], depth_available: asyncio.Event) -> None:
+        async for data in self._api.listen_depth(self._symbols, self._params.ws_speed, exchange_info=exchange_info):
             with check_speed("calculate depth", self._logger):
                 self._data.update_depth_events(data)
                 is_depth_available = depth_available.is_set()
@@ -147,7 +130,7 @@ class DepthService:
                     except ValueError:
                         self._data.reset()
                         break
-                elif not is_depth_available and self._data.depth_events.keys() == set(self._symbols):
+                elif not is_depth_available and self._data.depth_events.keys() == self._symbols:
                     depth_available.set()
 
     async def run(self) -> None:
@@ -155,18 +138,15 @@ class DepthService:
             try:
                 self._logger.info("start task")
                 depth_available = asyncio.Event()
-                task = create_safe_task(self._listen_depth(depth_available), logger=self._logger)
+                exchange_info = await self._api.get_info(self._symbols)
+                task = create_safe_task(self._listen_depth(exchange_info, depth_available), logger=self._logger)
                 await asyncio.wait_for(depth_available.wait(), timeout=10)
-                tasks = (self._api.get_depth(symbol, self._params.depth_limit) for symbol in self._symbols)
+                tasks = (
+                    self._api.get_depth(symbol, self._params.depth_limit, exchange_info=exchange_info)
+                    for symbol in self._symbols
+                )
                 depth_symbols = await asyncio.gather(*tasks)
-                self._data.depth_results = {
-                    depth_symbol.symbol: {
-                        "last_update_id": depth_symbol.last_update_id,
-                        "bids": depth_symbol.bids,
-                        "asks": depth_symbol.asks,
-                    }
-                    for depth_symbol in depth_symbols
-                }
+                self._data.init_depth_results(depth_symbols)
                 await task
             except TimeoutError:
                 self._logger.error("depth_available is not available... restart", exc_info=False)

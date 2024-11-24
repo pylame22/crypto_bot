@@ -4,6 +4,7 @@ from sqlalchemy import insert
 
 from src.core.database.models import DepthTable
 from src.core.enums import DepthTypeEnum
+from src.core.types import ScaledPrice
 
 from .base import BaseRepository
 
@@ -13,8 +14,8 @@ class DepthRepository(BaseRepository):
         self,
         symbol: str,
         *,
-        bids: dict[str, str],
-        asks: dict[str, str],
+        bids: dict[ScaledPrice, str],
+        asks: dict[ScaledPrice, str],
         datetime_at: datetime,
     ) -> None:
         values = []
@@ -23,7 +24,7 @@ class DepthRepository(BaseRepository):
                 {
                     "symbol": symbol,
                     "type": DepthTypeEnum.BID,
-                    "price": price,
+                    "price": str(price),
                     "quantity": quantity,
                     "datetime_at": datetime_at,
                 },
@@ -33,7 +34,7 @@ class DepthRepository(BaseRepository):
                 {
                     "symbol": symbol,
                     "type": DepthTypeEnum.ASK,
-                    "price": price,
+                    "price": str(price),
                     "quantity": quantity,
                     "datetime_at": datetime_at,
                 },
