@@ -21,7 +21,8 @@ def create_safe_task(coro: Coroutine[Any, Any, Any], *, logger: logging.Logger) 
 
 
 @contextmanager
-def check_speed(name: str, logger: logging.Logger) -> Iterator[None]:
+def check_speed(name: str) -> Iterator[None]:
+    logger = logging.getLogger()
     start_time = time.perf_counter()
     try:
         yield

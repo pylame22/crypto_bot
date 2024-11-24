@@ -48,12 +48,10 @@ class DepthData:
             if depth_event.first_bid.is_next_ask_for_bid(depth_event.first_ask):
                 depth_result.first_bid = depth_event.first_bid
                 depth_result.first_ask = depth_event.first_ask
-            first_bid = depth_result.first_bid
-            first_ask = depth_result.first_ask
             new_bids, new_asks = {}, {}
             for tick_number in range(depth_limit):
-                next_bid = first_bid.get_next(-tick_number)
-                next_ask = first_ask.get_next(tick_number)
+                next_bid = depth_result.first_bid.get_next(-tick_number)
+                next_ask = depth_result.first_ask.get_next(tick_number)
                 new_bids[next_bid] = depth_event.bids.get(next_bid, depth_result.bids.get(next_bid, "0"))
                 new_asks[next_ask] = depth_event.asks.get(next_ask, depth_result.asks.get(next_ask, "0"))
             depth_result.bids = new_bids
@@ -85,7 +83,7 @@ class DepthService:
         repo: DepthRepository,
         context: LifeSpanContext,
     ) -> None:
-        self._logger = logging.getLogger(__name__)
+        self._logger = logging.getLogger()
         self._symbols = symbols
         self._params = params
         self._loop = asyncio.get_running_loop()
@@ -121,7 +119,7 @@ class DepthService:
 
     async def _listen_depth(self, exchange_info: dict[str, ExchangeInfoSchema], depth_available: asyncio.Event) -> None:
         async for data in self._api.listen_depth(self._symbols, self._params.ws_speed, exchange_info=exchange_info):
-            with check_speed("calculate depth", self._logger):
+            with check_speed("calculate depth"):
                 self._data.update_depth_events(data)
                 is_depth_available = depth_available.is_set()
                 if is_depth_available and self._data.depth_results:
