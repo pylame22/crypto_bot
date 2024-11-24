@@ -1,3 +1,4 @@
+import logging
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator, Iterable
 from typing import Any, ClassVar
@@ -37,6 +38,7 @@ class BaseExchangeAPI(ABC):
     def __init__(self, context: LifeSpanContext) -> None:
         self._settings = context.settings
         self._http = context.http
+        self._logger = logging.getLogger(__name__)
         self._json_decoder = msgspec.json.Decoder()
         self._json_encoder = msgspec.json.Encoder()
 

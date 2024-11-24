@@ -1,16 +1,27 @@
 services:
-  database:
+  postgres:
     image: postgres:17
-    container_name: crypto_bot_database
+    container_name: crypto_bot_postgres
     ports:
       - 5432:5432
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
+    networks:
+      - app
+      - external
 
   app:
     build: .
     container_name: crypto_bot_app
     depends_on:
-      - database
+      - postgres
+    networks:
+      - app
+
+networks:
+  app:
+    driver: bridge
+  external:
+    external: true

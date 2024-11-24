@@ -14,7 +14,7 @@ class AutoStrEnum(StrEnum):
         return list_values[next_index]
 
 
-class RunTypeEnum(AutoStrEnum):
+class AppEnvEnum(AutoStrEnum):
     DEV = auto()
     PROD = auto()
 
