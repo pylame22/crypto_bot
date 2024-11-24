@@ -10,7 +10,7 @@ class DepthSchema:
 
 
 @dataclass(slots=True)
-class DepthChangeSchema:
+class DepthEventSchema:
     symbol: str
     time: int
     first_update_id: int

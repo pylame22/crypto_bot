@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Annotated
 from aiohttp import WSMsgType
 
 from src.core.enums import ExchangeEnum
-from src.core.schemas import DepthChangeSchema, DepthSchema
+from src.core.schemas import DepthEventSchema, DepthSchema
 
 from .base import BaseExchangeAPI
 
@@ -28,7 +28,7 @@ class BinanceAPI(BaseExchangeAPI):
         asks = self._get_depth_data(response["asks"])
         return DepthSchema(symbol=symbol, last_update_id=response["lastUpdateId"], bids=bids, asks=asks)
 
-    async def listen_depth(self, symbols: Iterable[str], speed: int = 500) -> AsyncGenerator[DepthChangeSchema]:
+    async def listen_depth(self, symbols: Iterable[str], speed: int = 500) -> AsyncGenerator[DepthEventSchema]:
         params = [f"{symbol.lower()}@depth@{speed}ms" for symbol in symbols]
         async with self._http.session.ws_connect(self._WS_URL) as ws:
             request_data = self._json_encoder.encode({"method": "SUBSCRIBE", "params": params})
@@ -41,7 +41,7 @@ class BinanceAPI(BaseExchangeAPI):
                     data = response["data"]
                     bids = self._get_depth_data(data["b"])
                     asks = self._get_depth_data(data["a"])
-                    yield DepthChangeSchema(
+                    yield DepthEventSchema(
                         symbol=data["s"],
                         time=data["T"],
                         first_update_id=data["U"],

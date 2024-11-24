@@ -28,4 +28,4 @@ def check_speed(name: str, logger: logging.Logger) -> Iterator[None]:
     finally:
         end_time = time.perf_counter()
         elapsed_time = end_time - start_time
-        logger.info("%s: %s seconds", name, elapsed_time)
+        logger.info("%s: %.3e seconds", name, elapsed_time)
