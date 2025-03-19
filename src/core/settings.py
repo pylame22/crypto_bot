@@ -10,18 +10,6 @@ from src.core.enums import AppEnvEnum
 BASE_DIR = Path(__file__).parents[2]
 
 
-class _Postgres(Struct):
-    host: str
-    user: str
-    name: str
-    password: str
-    echo: bool
-
-    @property
-    def dsn(self) -> str:
-        return f"postgresql+asyncpg://{self.user}:{self.password}@{self.host}/{self.name}"
-
-
 class _OKXExchange(Struct):
     api_key: str
     secret_key: str
@@ -32,11 +20,18 @@ class _Exchanges(Struct):
     okx: _OKXExchange | None
 
 
+class _Loader(Struct):
+    ws_speed: int
+    depth_limit: int
+    symbols: list[str]
+
+
 class Settings(Struct):
     env: AppEnvEnum
+    loader: _Loader
     exchanges: _Exchanges
-    postgres: _Postgres
     base_dir: Path = BASE_DIR
+    data_dir: Path = BASE_DIR / "data"
 
 
 def get_settings() -> Settings:

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from src.core.types import ScaledPrice
+from src.services.loader.types import ScaledPrice
 
 
 @dataclass(slots=True)

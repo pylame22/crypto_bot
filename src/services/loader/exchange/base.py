@@ -6,10 +6,11 @@ from typing import Any, ClassVar
 import msgspec
 from aiohttp import ClientResponse
 
+from src.core.connection.http import HttpConnector
 from src.core.enums import ExchangeEnum
-from src.core.lifespan import LifeSpanContext
-from src.core.schemas import DepthEventSchema, DepthSchema, ExchangeInfoSchema
+from src.core.settings import Settings
 from src.core.types import DictStrAny
+from src.services.loader.schemas import DepthEventSchema, DepthSchema, ExchangeInfoSchema
 
 
 class ExchangeError(Exception):
@@ -39,9 +40,9 @@ class BaseExchangeAPI(ABC):
 
     _DEFAULT_HEADERS: ClassVar = {"Content-Type": "application/json"}
 
-    def __init__(self, context: LifeSpanContext) -> None:
-        self._settings = context.settings
-        self._http = context.http
+    def __init__(self, http: HttpConnector, *, settings: Settings) -> None:
+        self._settings = settings
+        self._http = http
         self._logger = logging.getLogger()
         self._json_decoder = msgspec.json.Decoder()
         self._json_encoder = msgspec.json.Encoder()

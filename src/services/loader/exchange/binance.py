@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING, Annotated
 from aiohttp import WSMsgType
 
 from src.core.enums import ExchangeEnum
-from src.core.schemas import DepthEventSchema, DepthSchema, ExchangeInfoSchema
-from src.core.types import ScaledPrice
+from src.services.loader.schemas import DepthEventSchema, DepthSchema, ExchangeInfoSchema
+from src.services.loader.types import ScaledPrice
 
 from .base import BaseExchangeAPI, ExchangeError
 

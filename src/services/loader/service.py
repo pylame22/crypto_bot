@@ -1,20 +1,13 @@
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
 
-from src.core.enums import AppEnvEnum
-from src.core.lifespan import LifeSpanContext
-from src.core.schemas import DepthEventSchema, DepthSchema, ExchangeInfoSchema
+from src.core.settings import Settings
+from src.core.types import DataQueue
 from src.core.utils import check_speed, create_safe_task
-from src.services.exchange.base import BaseExchangeAPI
-from src.services.repository.depth import DepthRepository
+from src.services.loader.schemas import DepthEventSchema, DepthSchema, ExchangeInfoSchema
 
-
-@dataclass(slots=True)
-class DepthParams:
-    ws_speed: int
-    depth_limit: int
+from .exchange.base import BaseExchangeAPI
 
 
 @dataclass(slots=True)
@@ -73,37 +66,35 @@ class DepthData:
         self.depth_results = {depth_symbol.symbol: depth_symbol for depth_symbol in depth_symbols}
 
 
-class DepthService:
+class LoaderService:
     def __init__(
         self,
-        symbols: set[str],
-        params: DepthParams,
         *,
         api: BaseExchangeAPI,
-        repo: DepthRepository,
-        context: LifeSpanContext,
+        data_queue: DataQueue,
+        settings: Settings,
     ) -> None:
         self._logger = logging.getLogger()
-        self._symbols = symbols
-        self._params = params
-        self._loop = asyncio.get_running_loop()
+        self._symbols = set(settings.loader.symbols)
+        self._ws_speed = settings.loader.ws_speed
+        self._depth_limit = settings.loader.depth_limit
         self._api = api
-        self._repo = repo
-        self._context = context
+        self._data_queue = data_queue
+        self._settings = settings
         self._data = DepthData()
 
     def _save_to_db(self, symbol: str, time: int) -> None:
-        if self._context.settings.env == AppEnvEnum.PROD:
-            datetime_at = datetime.fromtimestamp(time / 1000, UTC)
-            repo_coro = self._repo.create_depth_snapshot(
-                symbol,
-                bids=self._data.depth_results[symbol].bids.copy(),
-                asks=self._data.depth_results[symbol].asks.copy(),
-                datetime_at=datetime_at,
-            )
-            create_safe_task(repo_coro, logger=self._logger)
-        else:
-            create_safe_task(asyncio.sleep(0.1), logger=self._logger)
+        # datetime_at as datetime.fromtimestamp(time / 1000, UTC)
+        # bids as self._data.depth_results[symbol].bids.copy()
+        # asks as self._data.depth_results[symbol].asks.copy()
+        self._data_queue.put(
+            {
+                "s": symbol,
+                "t": time,
+                "b": self._data.depth_results[symbol].bids.copy(),
+                "a": self._data.depth_results[symbol].asks.copy(),
+            },
+        )
 
     def _calculate_depth(self, data: DepthEventSchema) -> None:
         if not self._data.filtered_symbol_events_map.get(data.symbol):
@@ -114,11 +105,11 @@ class DepthService:
         if not self._data.is_valid_final_id(data.symbol, data.last_final_update_id):
             raise ValueError
         self._data.set_prev_final_update_id(data.symbol, data.final_update_id)
-        self._data.update_depth_results(data.symbol, self._params.depth_limit)
+        self._data.update_depth_results(data.symbol, self._depth_limit)
         self._save_to_db(data.symbol, data.time)
 
     async def _listen_depth(self, exchange_info: dict[str, ExchangeInfoSchema], depth_available: asyncio.Event) -> None:
-        async for data in self._api.listen_depth(self._symbols, self._params.ws_speed, exchange_info=exchange_info):
+        async for data in self._api.listen_depth(self._symbols, self._ws_speed, exchange_info=exchange_info):
             with check_speed("calculate depth"):
                 self._data.update_depth_events(data)
                 is_depth_available = depth_available.is_set()
@@ -140,7 +131,7 @@ class DepthService:
                 task = create_safe_task(self._listen_depth(exchange_info, depth_available), logger=self._logger)
                 await asyncio.wait_for(depth_available.wait(), timeout=10)
                 tasks = (
-                    self._api.get_depth(symbol, self._params.depth_limit, exchange_info=exchange_info)
+                    self._api.get_depth(symbol, self._depth_limit, exchange_info=exchange_info)
                     for symbol in self._symbols
                 )
                 depth_symbols = await asyncio.gather(*tasks)
@@ -150,4 +141,6 @@ class DepthService:
                 self._logger.error("depth_available is not available... restart", exc_info=False)
                 continue
             except asyncio.CancelledError:
+                self._logger.info("closing loader")
+                self._data_queue.put(None)
                 break
