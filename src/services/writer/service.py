@@ -15,7 +15,6 @@ class WriterService:
         self._data_queue = data_queue
         self._settings = settings
         self._current_hour = self._get_utc_hour()
-        self._filename = f"{self._current_hour}.msgpack"
         self._file = self._create_file()
 
     @staticmethod
@@ -24,14 +23,15 @@ class WriterService:
         return utc_now.strftime("%Y-%m-%dT%H")
 
     def _create_file(self) -> BufferedWriter:
-        return (self._settings.data_dir / self._filename).open("ab")
+        file_name = f"{self._current_hour}.msgpack"
+        file_path = self._settings.data_dir / file_name
+        return file_path.open("ab")
 
     def _check_rotation(self) -> None:
         current_hour = self._get_utc_hour()
         if current_hour != self._current_hour:
             self._file.close()
             self._current_hour = current_hour
-            self._filename = f"{self._current_hour}.msgpack"
             self._file = self._create_file()
 
     def _write(self, data: DictStrAny) -> None:

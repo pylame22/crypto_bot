@@ -31,6 +31,7 @@ async def run_loader(data_queue: DataQueue) -> None:
 def run_writer(data_queue: DataQueue) -> None:
     settings = get_settings()
     setup_logging(settings)
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
 
     writer = WriterService(data_queue=data_queue, settings=settings)
     writer.run()
