@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
-from src.services.loader.types import ScaledPrice
+from src.core.enums import TradeTypeEnum
+from src.core.types import ScaledPrice
 
 
 @dataclass(slots=True)
@@ -30,3 +31,13 @@ class DepthEventSchema:
     asks: dict[ScaledPrice, str]
     first_bid: ScaledPrice
     first_ask: ScaledPrice
+
+
+@dataclass(slots=True)
+class AggTradeEventSchema:
+    symbol: str
+    trade_type: TradeTypeEnum
+    trade_id: int
+    time: int
+    price: ScaledPrice
+    quantity: str

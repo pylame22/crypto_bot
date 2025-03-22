@@ -2,6 +2,7 @@ import logging
 
 import msgpack  # type: ignore [import-untyped]
 
+from src.core.enums import DataTypeEnum
 from src.core.logging import setup_logging
 from src.core.settings import get_settings  # type: ignore [import-untyped]
 
@@ -10,7 +11,7 @@ def main() -> None:
     logger = logging.getLogger()
     settings = get_settings()
     setup_logging(settings)
-    for file in settings.data_dir.glob("*.msgpack"):
+    for file in (settings.data_dir / DataTypeEnum.DEPTH).glob("*.msgpack"):
         with file.open("rb") as f:
             unpacker = msgpack.Unpacker(f, raw=False)
             for unpacked in unpacker:
@@ -21,6 +22,11 @@ def main() -> None:
                     "a": len(unpacked["a"]),
                 }
                 logger.info(data)
+    for file in (settings.data_dir / DataTypeEnum.AGG_TRADE).glob("*.msgpack"):
+        with file.open("rb") as f:
+            unpacker = msgpack.Unpacker(f, raw=False)
+            for unpacked in unpacker:
+                logger.info(unpacked)
 
 
 if __name__ == "__main__":

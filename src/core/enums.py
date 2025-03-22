@@ -24,6 +24,16 @@ class ExchangeEnum(AutoStrEnum):
     OKX = auto()
 
 
+class TradeTypeEnum(AutoStrEnum):
+    LONG = auto()
+    SHORT = auto()
+
+
 class DepthTypeEnum(AutoStrEnum):
     BID = auto()
     ASK = auto()
+
+
+class DataTypeEnum(AutoStrEnum):
+    DEPTH = auto()
+    AGG_TRADE = auto()

@@ -21,7 +21,6 @@ class _Exchanges(Struct):
 
 
 class _Loader(Struct):
-    ws_speed: int
     depth_limit: int
     symbols: list[str]
 

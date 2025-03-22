@@ -10,7 +10,7 @@ from src.core.connection.http import HttpConnector
 from src.core.enums import ExchangeEnum
 from src.core.settings import Settings
 from src.core.types import DictStrAny
-from src.services.loader.schemas import DepthEventSchema, DepthSchema, ExchangeInfoSchema
+from src.services.loader.schemas import AggTradeEventSchema, DepthEventSchema, DepthSchema, ExchangeInfoSchema
 
 
 class ExchangeError(Exception):
@@ -88,11 +88,10 @@ class BaseExchangeAPI(ABC):
         pass
 
     @abstractmethod
-    def listen_depth(
+    def listen_data(
         self,
         symbols: set[str],
-        speed: int,
         *,
         exchange_info: dict[str, ExchangeInfoSchema],
-    ) -> AsyncGenerator[DepthEventSchema]:
+    ) -> AsyncGenerator[DepthEventSchema | AggTradeEventSchema]:
         pass

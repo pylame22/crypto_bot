@@ -1,22 +1,30 @@
-from collections.abc import AsyncGenerator
-from typing import TYPE_CHECKING, Annotated
+from collections.abc import AsyncGenerator, Callable
+from typing import Annotated, ClassVar
 
 from aiohttp import WSMsgType
 
-from src.core.enums import ExchangeEnum
-from src.services.loader.schemas import DepthEventSchema, DepthSchema, ExchangeInfoSchema
-from src.services.loader.types import ScaledPrice
+from src.core.enums import DataTypeEnum, ExchangeEnum, TradeTypeEnum
+from src.core.types import DictStrAny, ScaledPrice
+from src.services.loader.schemas import AggTradeEventSchema, DepthEventSchema, DepthSchema, ExchangeInfoSchema
 
 from .base import BaseExchangeAPI, ExchangeError
 
-if TYPE_CHECKING:
-    from src.core.types import DictStrAny
+type EventDataStrategy = Callable[[DictStrAny, dict[str, ExchangeInfoSchema]], AggTradeEventSchema | DepthEventSchema]
 
 
 class BinanceAPI(BaseExchangeAPI):
     _EXCHANGE = ExchangeEnum.BINANCE
     _API_URL = "https://fapi.binance.com/fapi/v1/"
     _WS_URL = "wss://fstream.binance.com/stream"
+
+    _TRADE_TYPE_MAP: ClassVar[dict[bool, TradeTypeEnum]] = {
+        True: TradeTypeEnum.LONG,
+        False: TradeTypeEnum.SHORT,
+    }
+    _DATA_TYPE_MAP: ClassVar[dict[str, DataTypeEnum]] = {
+        "aggTrade": DataTypeEnum.AGG_TRADE,
+        "depthUpdate": DataTypeEnum.DEPTH,
+    }
 
     @staticmethod
     def _get_depth_data(
@@ -39,6 +47,32 @@ class BinanceAPI(BaseExchangeAPI):
             msg = "can not find first_price"
             raise ExchangeError(msg)
         return depth_data, first_price
+
+    def _get_agg_trade(self, data: DictStrAny, _: dict[str, ExchangeInfoSchema]) -> AggTradeEventSchema:
+        return AggTradeEventSchema(
+            symbol=data["s"],
+            trade_type=self._TRADE_TYPE_MAP[data["m"]],
+            trade_id=data["a"],
+            time=data["T"],
+            price=data["p"],
+            quantity=data["q"],
+        )
+
+    def _get_depth(self, data: DictStrAny, exchange_info: dict[str, ExchangeInfoSchema]) -> DepthEventSchema:
+        tick_size = exchange_info[data["s"]].tick_size
+        bids, first_bid = self._get_depth_data(data["b"], tick_size, is_reverse=True)
+        asks, first_ask = self._get_depth_data(data["a"], tick_size)
+        return DepthEventSchema(
+            symbol=data["s"],
+            time=data["T"],
+            first_update_id=data["U"],
+            final_update_id=data["u"],
+            last_final_update_id=data["pu"],
+            bids=bids,
+            asks=asks,
+            first_bid=first_bid,
+            first_ask=first_ask,
+        )
 
     async def get_info(self, symbols: set[str]) -> dict[str, ExchangeInfoSchema]:
         response = await self._request(self._GET, "exchangeInfo")
@@ -70,14 +104,20 @@ class BinanceAPI(BaseExchangeAPI):
             first_ask=first_ask,
         )
 
-    async def listen_depth(
+    async def listen_data(
         self,
         symbols: set[str],
-        speed: int,
         *,
         exchange_info: dict[str, ExchangeInfoSchema],
-    ) -> AsyncGenerator[DepthEventSchema]:
-        params = [f"{symbol.lower()}@depth@{speed}ms" for symbol in symbols]
+    ) -> AsyncGenerator[DepthEventSchema | AggTradeEventSchema]:
+        params = [
+            param
+            for symbol in symbols
+            for param in (
+                f"{symbol.lower()}@depth@100ms",
+                f"{symbol.lower()}@aggTrade",
+            )
+        ]
         async with self._http.session.ws_connect(self._WS_URL) as ws:
             request_data = self._json_encoder.encode({"method": "SUBSCRIBE", "params": params})
             await ws.send_frame(request_data, WSMsgType.TEXT)
@@ -87,17 +127,8 @@ class BinanceAPI(BaseExchangeAPI):
                 response: DictStrAny = self._json_decoder.decode(msg.data)
                 if response.get("stream") in params:
                     data = response["data"]
-                    tick_size = exchange_info[data["s"]].tick_size
-                    bids, first_bid = self._get_depth_data(data["b"], tick_size, is_reverse=True)
-                    asks, first_ask = self._get_depth_data(data["a"], tick_size)
-                    yield DepthEventSchema(
-                        symbol=data["s"],
-                        time=data["T"],
-                        first_update_id=data["U"],
-                        final_update_id=data["u"],
-                        last_final_update_id=data["pu"],
-                        bids=bids,
-                        asks=asks,
-                        first_bid=first_bid,
-                        first_ask=first_ask,
-                    )
+                    data_type = self._DATA_TYPE_MAP[data["e"]]
+                    if data_type == DataTypeEnum.DEPTH:
+                        yield self._get_depth(data, exchange_info)
+                    elif data_type == DataTypeEnum.AGG_TRADE:
+                        yield self._get_agg_trade(data, exchange_info)

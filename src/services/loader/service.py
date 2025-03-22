@@ -2,10 +2,11 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 
+from src.core.enums import DataTypeEnum
 from src.core.settings import Settings
 from src.core.types import DataQueue
-from src.core.utils import check_speed, create_safe_task
-from src.services.loader.schemas import DepthEventSchema, DepthSchema, ExchangeInfoSchema
+from src.core.utils import create_safe_task
+from src.services.loader.schemas import AggTradeEventSchema, DepthEventSchema, DepthSchema, ExchangeInfoSchema
 
 from .exchange.base import BaseExchangeAPI
 
@@ -76,25 +77,11 @@ class LoaderService:
     ) -> None:
         self._logger = logging.getLogger()
         self._symbols = set(settings.loader.symbols)
-        self._ws_speed = settings.loader.ws_speed
         self._depth_limit = settings.loader.depth_limit
         self._api = api
         self._data_queue = data_queue
         self._settings = settings
         self._data = DepthData()
-
-    def _save_to_db(self, symbol: str, time: int) -> None:
-        # datetime_at as datetime.fromtimestamp(time / 1000, UTC)
-        # bids as self._data.depth_results[symbol].bids.copy()
-        # asks as self._data.depth_results[symbol].asks.copy()
-        self._data_queue.put(
-            {
-                "s": symbol,
-                "t": time,
-                "b": self._data.depth_results[symbol].bids.copy(),
-                "a": self._data.depth_results[symbol].asks.copy(),
-            },
-        )
 
     def _calculate_depth(self, data: DepthEventSchema) -> None:
         if not self._data.filtered_symbol_events_map.get(data.symbol):
@@ -106,11 +93,30 @@ class LoaderService:
             raise ValueError
         self._data.set_prev_final_update_id(data.symbol, data.final_update_id)
         self._data.update_depth_results(data.symbol, self._depth_limit)
-        self._save_to_db(data.symbol, data.time)
+        self._data_queue.put(
+            {
+                "e": DataTypeEnum.DEPTH,
+                "s": data.symbol,
+                "t": data.time,
+                "b": self._data.depth_results[data.symbol].bids.copy(),
+                "a": self._data.depth_results[data.symbol].asks.copy(),
+            },
+        )
 
-    async def _listen_depth(self, exchange_info: dict[str, ExchangeInfoSchema], depth_available: asyncio.Event) -> None:
-        async for data in self._api.listen_depth(self._symbols, self._ws_speed, exchange_info=exchange_info):
-            with check_speed("calculate depth"):
+    def _calculate_agg_trade(self, data: AggTradeEventSchema) -> None:
+        self._data_queue.put(
+            {
+                "e": DataTypeEnum.AGG_TRADE,
+                "s": data.symbol,
+                "t": data.time,
+                "p": data.price,
+                "q": data.quantity,
+            },
+        )
+
+    async def _listen_data(self, exchange_info: dict[str, ExchangeInfoSchema], depth_available: asyncio.Event) -> None:
+        async for data in self._api.listen_data(self._symbols, exchange_info=exchange_info):
+            if isinstance(data, DepthEventSchema):
                 self._data.update_depth_events(data)
                 is_depth_available = depth_available.is_set()
                 if is_depth_available and self._data.depth_results:
@@ -121,6 +127,8 @@ class LoaderService:
                         break
                 elif not is_depth_available and self._data.depth_events.keys() == self._symbols:
                     depth_available.set()
+            elif isinstance(data, AggTradeEventSchema):
+                self._calculate_agg_trade(data)
 
     async def run(self) -> None:
         while True:
@@ -128,7 +136,7 @@ class LoaderService:
                 self._logger.info("start task")
                 depth_available = asyncio.Event()
                 exchange_info = await self._api.get_info(self._symbols)
-                task = create_safe_task(self._listen_depth(exchange_info, depth_available), logger=self._logger)
+                task = create_safe_task(self._listen_data(exchange_info, depth_available), logger=self._logger)
                 await asyncio.wait_for(depth_available.wait(), timeout=10)
                 tasks = (
                     self._api.get_depth(symbol, self._depth_limit, exchange_info=exchange_info)
