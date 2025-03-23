@@ -17,6 +17,7 @@ class FileWriter:
     @classmethod
     def _create_file(cls, data_dir: Path, current_hour: str) -> BufferedWriter:
         file_path = data_dir / f"{current_hour}.msgpack"
+        file_path.parent.mkdir(parents=True, exist_ok=True)
         return file_path.open("ab")
 
     @classmethod

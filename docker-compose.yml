@@ -11,5 +11,20 @@ services:
     volumes:
       - ./.pgdata:/var/lib/postgresql/data
 
+  app:
+    build: .
+    container_name: crypto_bot_app
+    volumes:
+      - ./data:/app/data
+    networks:
+      - app
+
+networks:
+  app:
+    driver: bridge
+  external:
+    external: true
+
 volumes:
+  data:
   .pgdata:
