@@ -32,7 +32,7 @@ class BinanceAPI(BaseExchangeAPI):
         tick_size: str,
         *,
         is_reverse: bool = False,
-    ) -> tuple[dict[ScaledPrice, str], ScaledPrice]:
+    ) -> tuple[dict[ScaledPrice, str], ScaledPrice | None]:
         depth_data = {}
         first_price = None
         iterator = reversed(data) if is_reverse else data
@@ -43,9 +43,6 @@ class BinanceAPI(BaseExchangeAPI):
             if not first_price and qty != "0":
                 first_price = scaled_price
 
-        if not first_price:
-            msg = "can not find first_price"
-            raise ExchangeError(msg)
         return depth_data, first_price
 
     def _get_agg_trade(self, data: DictStrAny, _: dict[str, ExchangeInfoSchema]) -> AggTradeEventSchema:
@@ -58,7 +55,7 @@ class BinanceAPI(BaseExchangeAPI):
             quantity=data["q"],
         )
 
-    def _get_depth(self, data: DictStrAny, exchange_info: dict[str, ExchangeInfoSchema]) -> DepthEventSchema:
+    def _get_partial_depth(self, data: DictStrAny, exchange_info: dict[str, ExchangeInfoSchema]) -> DepthEventSchema:
         tick_size = exchange_info[data["s"]].tick_size
         bids, first_bid = self._get_depth_data(data["b"], tick_size, is_reverse=True)
         asks, first_ask = self._get_depth_data(data["a"], tick_size)
@@ -95,6 +92,9 @@ class BinanceAPI(BaseExchangeAPI):
         tick_size = exchange_info[symbol].tick_size
         bids, first_bid = self._get_depth_data(response["bids"], tick_size)
         asks, first_ask = self._get_depth_data(response["asks"], tick_size)
+        if not first_bid or not first_ask:
+            msg = f"can not get first bid or ask for {symbol}"
+            raise ExchangeError(msg)
         return DepthSchema(
             symbol=symbol,
             last_update_id=response["lastUpdateId"],
@@ -114,7 +114,7 @@ class BinanceAPI(BaseExchangeAPI):
             param
             for symbol in symbols
             for param in (
-                f"{symbol.lower()}@depth@100ms",
+                f"{symbol.lower()}@depth@500ms",
                 f"{symbol.lower()}@aggTrade",
             )
         ]
@@ -129,6 +129,6 @@ class BinanceAPI(BaseExchangeAPI):
                     data = response["data"]
                     data_type = self._DATA_TYPE_MAP[data["e"]]
                     if data_type == DataTypeEnum.DEPTH:
-                        yield self._get_depth(data, exchange_info)
+                        yield self._get_partial_depth(data, exchange_info)
                     elif data_type == DataTypeEnum.AGG_TRADE:
                         yield self._get_agg_trade(data, exchange_info)

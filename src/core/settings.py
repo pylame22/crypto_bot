@@ -10,6 +10,14 @@ from src.core.enums import AppEnvEnum
 BASE_DIR = Path(__file__).parents[2]
 
 
+class _Postgres(Struct):
+    host: str
+    port: int
+    user: str
+    password: str
+    database: str
+
+
 class _OKXExchange(Struct):
     api_key: str
     secret_key: str
@@ -27,6 +35,7 @@ class _Loader(Struct):
 
 class Settings(Struct):
     env: AppEnvEnum
+    postgres: _Postgres
     loader: _Loader
     exchanges: _Exchanges
     base_dir: Path = BASE_DIR

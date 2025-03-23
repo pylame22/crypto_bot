@@ -23,6 +23,8 @@ class WriterService:
                     if data is None:
                         break
                     data_type = data.pop("e")
+                    msg = f"Writing data: {data_type}"
+                    self._logger.info(msg)
                     if data_type == DataTypeEnum.DEPTH:
                         depth_writer.write(data)
                     elif data_type == DataTypeEnum.AGG_TRADE:

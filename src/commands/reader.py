@@ -11,7 +11,7 @@ def main() -> None:
     logger = logging.getLogger()
     settings = get_settings()
     setup_logging(settings)
-    for file in (settings.data_dir / DataTypeEnum.DEPTH).glob("*.msgpack"):
+    for file in sorted((settings.data_dir / DataTypeEnum.DEPTH).iterdir()):
         with file.open("rb") as f:
             unpacker = msgpack.Unpacker(f, raw=False)
             for unpacked in unpacker:
@@ -22,7 +22,8 @@ def main() -> None:
                     "a": len(unpacked["a"]),
                 }
                 logger.info(data)
-    for file in (settings.data_dir / DataTypeEnum.AGG_TRADE).glob("*.msgpack"):
+
+    for file in sorted((settings.data_dir / DataTypeEnum.AGG_TRADE).iterdir()):
         with file.open("rb") as f:
             unpacker = msgpack.Unpacker(f, raw=False)
             for unpacked in unpacker:

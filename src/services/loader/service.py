@@ -39,9 +39,11 @@ class DepthData:
     def update_depth_results(self, symbol: str, depth_limit: int) -> None:
         depth_result = self.depth_results[symbol]
         for depth_event in self.depth_events[symbol].values():
-            if depth_event.first_bid.is_next_ask_for_bid(depth_event.first_ask):
-                depth_result.first_bid = depth_event.first_bid
-                depth_result.first_ask = depth_event.first_ask
+            first_bid = depth_event.first_bid or depth_result.first_bid
+            first_ask = depth_event.first_ask or depth_result.first_ask
+            if first_bid.is_next_ask_for_bid(first_ask):
+                depth_result.first_bid = first_bid
+                depth_result.first_ask = first_ask
             new_bids, new_asks = {}, {}
             for tick_number in range(depth_limit):
                 next_bid = depth_result.first_bid.get_next(-tick_number)
@@ -107,6 +109,7 @@ class LoaderService:
         self._data_queue.put(
             {
                 "e": DataTypeEnum.AGG_TRADE,
+                "m": data.trade_type,
                 "s": data.symbol,
                 "t": data.time,
                 "p": data.price,
@@ -147,7 +150,9 @@ class LoaderService:
                 await task
             except TimeoutError:
                 self._logger.error("depth_available is not available... restart", exc_info=False)
-                continue
+                self._logger.info("closing loader")
+                self._data_queue.put(None)
+                break
             except asyncio.CancelledError:
                 self._logger.info("closing loader")
                 self._data_queue.put(None)

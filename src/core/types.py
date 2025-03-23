@@ -24,8 +24,33 @@ class ScaledPrice:
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, ScaledPrice):
-            return NotImplemented
+            raise TypeError
         return self._value == other.value
+
+    def __ne__(self, other: object) -> bool:
+        if not isinstance(other, ScaledPrice):
+            raise TypeError
+        return self._value != other.value
+
+    def __lt__(self, other: object) -> bool:
+        if not isinstance(other, ScaledPrice):
+            raise TypeError
+        return self._value < other.value
+
+    def __le__(self, other: object) -> bool:
+        if not isinstance(other, ScaledPrice):
+            raise TypeError
+        return self._value <= other.value
+
+    def __gt__(self, other: object) -> bool:
+        if not isinstance(other, ScaledPrice):
+            raise TypeError
+        return self._value > other.value
+
+    def __ge__(self, other: object) -> bool:
+        if not isinstance(other, ScaledPrice):
+            raise TypeError
+        return self._value >= other.value
 
     @classmethod
     def from_price_and_tick(cls, price: str, tick_size: str) -> "ScaledPrice":

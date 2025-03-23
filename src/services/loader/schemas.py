@@ -29,8 +29,8 @@ class DepthEventSchema:
     last_final_update_id: int
     bids: dict[ScaledPrice, str]
     asks: dict[ScaledPrice, str]
-    first_bid: ScaledPrice
-    first_ask: ScaledPrice
+    first_bid: ScaledPrice | None
+    first_ask: ScaledPrice | None
 
 
 @dataclass(slots=True)
