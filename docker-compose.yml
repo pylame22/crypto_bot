@@ -2,14 +2,12 @@ services:
   db:
     image: postgres:17
     container_name: crypto_bot_db
-    environment:
-      POSTGRES_USER: crypto_bot_user
-      POSTGRES_PASSWORD: crypto_bot_password
-      POSTGRES_DB: crypto_bot
     ports:
       - 5432:5432
     volumes:
       - ./.pgdata:/var/lib/postgresql/data
+    networks:
+      - app
 
   app:
     build: .
@@ -22,8 +20,6 @@ services:
 networks:
   app:
     driver: bridge
-  external:
-    external: true
 
 volumes:
   data:

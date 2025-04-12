@@ -4,11 +4,10 @@ from dataclasses import dataclass, field
 
 from src.core.enums import DataTypeEnum
 from src.core.settings import Settings
-from src.core.types import DataQueue
 from src.core.utils import create_safe_task
-from src.services.loader.schemas import AggTradeEventSchema, DepthEventSchema, DepthSchema, ExchangeInfoSchema
+from src.schemas.load_data import AggTradeEventSchema, DepthEventSchema, DepthSchema, ExchangeInfoSchema, LoadDataQueue
 
-from .exchange.base import BaseExchangeAPI
+from .exchange import BaseExchangeAPI
 
 
 @dataclass(slots=True)
@@ -74,7 +73,7 @@ class LoaderService:
         self,
         *,
         api: BaseExchangeAPI,
-        data_queue: DataQueue,
+        data_queue: LoadDataQueue,
         settings: Settings,
     ) -> None:
         self._logger = logging.getLogger()

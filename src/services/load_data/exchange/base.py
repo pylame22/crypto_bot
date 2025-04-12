@@ -10,7 +10,7 @@ from src.core.connection.http import HttpConnector
 from src.core.enums import ExchangeEnum
 from src.core.settings import Settings
 from src.core.types import DictStrAny
-from src.services.loader.schemas import AggTradeEventSchema, DepthEventSchema, DepthSchema, ExchangeInfoSchema
+from src.schemas.load_data import AggTradeEventSchema, DepthEventSchema, DepthSchema, ExchangeInfoSchema
 
 
 class ExchangeError(Exception):

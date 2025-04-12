@@ -1,7 +1,10 @@
 from dataclasses import dataclass
+from multiprocessing import Queue
 
 from src.core.enums import TradeTypeEnum
-from src.core.types import ScaledPrice
+from src.core.types import DictStrAny, ScaledPrice
+
+type LoadDataQueue = Queue[DictStrAny | None]
 
 
 @dataclass(slots=True)

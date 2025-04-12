@@ -5,7 +5,7 @@ from aiohttp import WSMsgType
 
 from src.core.enums import DataTypeEnum, ExchangeEnum, TradeTypeEnum
 from src.core.types import DictStrAny, ScaledPrice
-from src.services.loader.schemas import AggTradeEventSchema, DepthEventSchema, DepthSchema, ExchangeInfoSchema
+from src.schemas.load_data import AggTradeEventSchema, DepthEventSchema, DepthSchema, ExchangeInfoSchema
 
 from .base import BaseExchangeAPI, ExchangeError
 

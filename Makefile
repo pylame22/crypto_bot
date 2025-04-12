@@ -1,12 +1,12 @@
 run:
-	uv run python -m src
+	uv run python -m src $(filter-out $@,$(MAKECMDGOALS))
 
-run-reader:
-	uv run python -m src.reader
+load-data:
+	uv run python -m src load-data
 
 format:
-	uv run ruff format . 
+	uv run ruff format src
 
 lint:
-	uv run ruff check . --fix
-	uv run mypy .
+	uv run ruff check src --fix
+	uv run mypy src
